@@ -41,6 +41,7 @@
 * [变量](#变量)
 * [命名](#命名)
   * [Categories](#Categories)
+  * [下划线](#下划线)
 * [注释](#注释)
 * [Init 和 Dealloc](#init-和-dealloc)
 * [字面量](#字面量)
@@ -55,8 +56,19 @@
 * [导入](#导入)
 * [协议](#协议)
 * [Xcode 工程](#Xcode-工程)
+* [语言](#语言)
+* [代码组织](#代码组织)
+* [属性的特性](#属性的特性)
+* [Case 语句](#Case-语句)
+* [类构造方法](#类构造方法)
+* [Golden Path](#golden-path)
+* [换行](#换行)
 
 ## 点语法
+
+[点语法介绍][Dot-Notation-Syntax_1]
+
+[Dot-Notation-Syntax_1]: https://developer.apple.com/library/ios/documentation/cocoa/conceptual/ProgrammingWithObjectiveC/EncapsulatingData/EncapsulatingData.html
 
 **RECOMMENDED** 使用点语法来访问或者修改属性，使用方括号来调用方法。
 
@@ -81,16 +93,53 @@ UIApplication.sharedApplication.delegate;
 ```objc
 if (user.isHappy) {
     // Do something
-}
-else {
+} else {
     // Do something else
+}
+```
+
+**反对：**
+```objc
+if (user.isHappy)
+{
+    //Do something
+}
+else
+{
+    //Do something else
 }
 ```
 
 * **SHOULD** 方法之间应该正好空一行，这有助于视觉清晰度和代码组织性。
 * **MAY** 方法中的功能块之间应该使用空白分开，但往往可能应该拆成几个子方法。
 * **MAY** 如果方法名过长，可以在方法名和方法体之间加一个空行，在视觉上进行分隔。
-* **MUST** `@synthesize` 和 `@dynamic` 在实现中每个都应该占一个新行。
+* **MUST** 优先使用自动生成的 `@synthesize`。如果自己声明，`@synthesize` 和 `@dynamic` 在实现中每个都应该占一个新行。
+* **SHOULD** 通常应该避免冒号对齐式的方法调用。只有在方法签名有 >= 3 个冒号，且冒号对齐能使代码更具可读性时才用冒号对齐。
+* **MUST NOT** 包含 block 的方法不要冒号对齐，因为 Xcode 的缩进使其可读性非常差。
+
+**推荐：**
+
+```objc
+// blocks are easily readable
+[UIView animateWithDuration:1.0 animations:^{
+  // something
+} completion:^(BOOL finished) {
+  // something
+}];
+```
+
+**反对：**
+
+```objc
+// colon-aligning makes the block indentation hard to read
+[UIView animateWithDuration:1.0
+                 animations:^{
+                     // something
+                 }
+                 completion:^(BOOL finished) {
+                     // something
+                 }];
+```
 
 ## 条件判断
 
@@ -120,11 +169,16 @@ if (!error) return success;
 
 ### 三目运算符
 
-**SHOULD** 三目运算符`?`的作用是让代码更清晰或更整洁。应该只在单一条件时使用。多条件时通常使用 if 语句会更易懂，或者重构为带名字的变量。
+**SHOULD** 三目运算符`?:`的作用是让代码更清晰或更整洁。应该只在单一条件时使用。多条件时通常使用 if 语句会更易懂，或者重构为带名字的变量。通常三目运算符用于赋值时二选一。
+
+**SHOULD** 非布尔变量要和其他值进行比较，并加括号来提高可读性。布尔类型的变量不用加括号。
 
 **推荐：**
 ```objc
-result = a > b ? x : y;
+result = (a > b) ? x : y;
+
+BOOL isHorizontal = YES;
+result = isHorizontal ? x : y;
 ```
 
 **反对：**
@@ -157,13 +211,31 @@ if (error) {
 
 ## 方法
 
-* **SHOULD** 在方法签名中，在 `-`/`+` 符号后应该有一个空格。
-* **SHOULD** 方法片段之间也应该有一个空格。
+* **SHOULD** 在方法签名中，在 `-`/`+` 符号后应该有一个空格。方法段之间应该有一个空格（符合 Apple 的规范）。
+
+* **MUST** 参数的前面有描述参数的关键字。
+
+* **SHOULD NOT** 单词 “and” 的使用被保留（禁止）。它不应该用于多个参数之间，见下面例子。
 
 **推荐：**
 ```objc
 - (void)setExampleText:(NSString *)text image:(UIImage *)image;
+- (void)sendAction:(SEL)aSelector to:(id)anObject forAllCells:(BOOL)flag;
+- (id)viewWithTag:(NSInteger)tag;
+- (instancetype)initWithWidth:(CGFloat)width height:(CGFloat)height;
 ```
+
+**反对：**
+
+```objc
+-(void)setT:(NSString *)text i:(UIImage *)image;
+- (void)sendAction:(SEL)aSelector :(id)anObject :(BOOL)flag;
+- (id)taggedView:(NSInteger)tag;
+- (instancetype)initWithWidth:(CGFloat)width andHeight:(CGFloat)height;
+- (instancetype)initWith:(int)width and:(int)height;  // Never do this.
+```
+
+???:
 * **SHOULD** 方法超过 80 个字符应该折行显示，每行一个参数。
 
 **推荐：**
@@ -238,7 +310,9 @@ UIButton *settingsButton;
 UIButton *setBut;
 ```
 
-**MUST** 类名和常量必须使用三个字母的前缀（例如 `TBK`），但 Core Data 实体名可以省略前缀。常量必须使用驼峰命名法，并以相关类的名字作为前缀。两个字母的前缀（如`NS`）由[Apple 保留使用权][Naming_3]。
+**MUST** 类名和常量必须使用三个字母的前缀（例如 `TBK`），但 Core Data 实体名可以省略前缀。两个字母的前缀（如`NS`）由[Apple 保留使用权][Naming_3]。
+
+**MUST** 常量必须使用驼峰命名法，并以相关类的名字作为前缀。
 
 **推荐：**
 
@@ -311,6 +385,14 @@ id varnm;
 @end
 ```
 
+### 下划线
+
+**MUST** 总是通过属性读写实例变量。所以有 `self.` 前缀的都是属性。
+
+**SHOULD** 例外：在初始化方法里，应该直接使用实例变量（如 `_variableName`）来避免 getter/setter 的副作用。
+
+**SHOULD NOT** 局部变量不应该包含下滑线。
+
 ## 注释
 
 **SHOULD** 当需要的时候，注释应该被用来解释 **为什么** 特定代码做了某些事情。
@@ -322,7 +404,7 @@ id varnm;
 
 **SHOULD** `dealloc` 方法应该放在实现文件的最上面，接在 `@synthesize` 和 `@dynamic` 语句的后面。在任何类中，`init` 都应该直接放在 `dealloc` 方法的下面。
 
-`init` 方法的结构应该像这样：
+**SHOULD** `init` 方法参考 Apple 的代码模板。返回 `instancetype` 类型而不是 `id`。结构如下：
 
 ```objc
 - (instancetype)init {
@@ -371,6 +453,7 @@ CGFloat x = CGRectGetMinX(frame);
 CGFloat y = CGRectGetMinY(frame);
 CGFloat width = CGRectGetWidth(frame);
 CGFloat height = CGRectGetHeight(frame);
+CGRect frame = CGRectMake(0.0, 0.0, width, height);
 ```
 
 **反对：**
@@ -382,6 +465,7 @@ CGFloat x = frame.origin.x;
 CGFloat y = frame.origin.y;
 CGFloat width = frame.size.width;
 CGFloat height = frame.size.height;
+CGRect frame = (CGRect){ .origin = CGPointZero, .size = frame.size };
 ```
 
 [CGRect-Functions_1]:https://developer.apple.com/documentation/coregraphics/cggeometry
@@ -419,6 +503,28 @@ typedef NS_ENUM(NSInteger, NYTAdRequestState) {
 };
 ```
 
+也可以显式赋值：
+
+```objc
+typedef NS_ENUM(NSInteger, RWTGlobalConstants) {
+    RWTPinSizeMin = 1,
+    RWTPinSizeMax = 5,
+    RWTPinCountMin = 100,
+    RWTPinCountMax = 500,
+};
+```
+
+**SHOULD NOT** 避免使用老式 k 开头的常量定义，除非写 CoreFoundation C 代码（几乎不可能）。
+
+**反对：**
+
+```objc
+enum GlobalConstants {
+    kMaxPinSize = 5,
+    kMaxPinCount = 500,
+};
+```
+
 ## 位掩码
 
 **MUST** 当用到位掩码时，使用 `NS_OPTIONS` 宏。
@@ -436,7 +542,7 @@ typedef NS_OPTIONS(NSUInteger, NYTAdCategory) {
 
 ## 私有属性
 
-**SHALL** 私有属性应该声明在类实现文件的类扩展（匿名 category）中。
+**SHALL** 私有属性应该声明在类实现文件的类扩展（匿名 category）中。类扩展不能有名字（如 `TBKPrivate` 或 `private`），有名字的 category 是用于扩展另一个类。匿名 category 可以使用 `<headerfile>+Private.h` 的文件命名转换来分享 / 暴露给测试。
 
 **推荐：**
 
@@ -463,6 +569,8 @@ typedef NS_OPTIONS(NSUInteger, NYTAdCategory) {
 
 ## 布尔
 
+**MUST** Objective-C 使用 `YES` 和 `NO`。而 `true` 和 `false` 只用于 CoreFoundation，C 或 C++ 代码。
+
 **MUST NOT** 永远不要直接和 `YES` 进行比较，因为 `YES` 被定义为 `1`，而 `BOOL` 在 Objective-C 中是一个 `CHAR` 类型，多达 8 位（所以如果 `11111110` 和 `YES` 比较会返回 `NO`）。
 
 **对于对象指针：**
@@ -487,6 +595,7 @@ if (someNumber.boolValue == NO)
 
 ```objc
 if (isAwesome == YES) // Never do this.
+if (isAwesome == true) {} // Never do this.
 ```
 
 **MAY** 如果一个 `BOOL` 属性的名称是一个形容词，属性可以省略 “is” 前缀，但为 get 访问器指定一个惯用的名字，例如：
@@ -574,8 +683,201 @@ if (isAwesome == YES) // Never do this.
 
 [Xcode-project_2]:http://clang.llvm.org/docs/UsersManual.html#controlling-diagnostics-via-pragmas
 
+## 语言
+
+**SHOULD** 使用 US English。
+
+## 代码组织
+
+使用 `#pragma mark -` 将方法按功能分组，协议 / 委托的实现接在基本结构之后。
+
+```objc
+#pragma mark - Lifecycle
+
+- (instancetype)init {}
+- (void)dealloc {}
+- (void)viewDidLoad {}
+- (void)viewWillAppear:(BOOL)animated {}
+- (void)didReceiveMemoryWarning {}
+
+#pragma mark - Custom Accessors
+
+- (void)setCustomProperty:(id)value {}
+- (id)customProperty {}
+
+#pragma mark - IBActions
+
+- (IBAction)submitData:(id)sender {}
+
+#pragma mark - Public
+
+- (void)publicMethod {}
+
+#pragma mark - Private
+
+- (void)privateMethod {}
+
+#pragma mark - Protocol conformance
+#pragma mark - UITextFieldDelegate
+#pragma mark - UITableViewDataSource
+#pragma mark - UITableViewDelegate
+
+#pragma mark - NSCopying
+
+- (id)copyWithZone:(NSZone *)zone {}
+
+#pragma mark - NSObject
+
+- (NSString *)description {}
+```
+
+## 属性的特性
+
+**SHOULD** 属性的特性应该显式列出，能帮助开发者阅读代码。顺序是先存储类型后原子性，这和连接 Interface Builder 的 UI 元素时自动生成的代码一致。
+
+**推荐：**
+
+```objc
+@property (weak, nonatomic) IBOutlet UIView *containerView;
+@property (copy, nonatomic) NSString *tutorialName;
+```
+
+**反对：**
+
+```objc
+@property (nonatomic, weak) IBOutlet UIView *containerView;
+@property (nonatomic) NSString *tutorialName;
+```
+
+**SHOULD** 有对应可变类型的属性（如 `NSString`）应该优先使用 `copy` 而不是 `strong`。因为即使声明的属性类型是 `NSString`，也可以传过来 `NSMutableString` 的实例，这样会发生改变而没有任何通知。
+
+**推荐：**
+
+```objc
+@property (copy, nonatomic) NSString *tutorialName;
+```
+
+**反对：**
+
+```objc
+@property (strong, nonatomic) NSString *tutorialName;
+```
+
+## Case 语句
+
+Case 语句不需要大括号，除非编译器强制要求。
+当 case 包含多行代码，应该加括号。
+
+```objc
+switch (condition) {
+    case 1:
+        // ...
+        break;
+    case 2: {
+        // ...
+        // Multi-line example using braces
+        break;
+    }
+    case 3:
+        // ...
+        break;
+    default:
+        // ...
+        break;
+}
+```
+
+**SHOULD** 当多个 case 可使用相同的代码时，应该使用 fall-through。fall-through 就是删除一个 case 的 `break` 语句，让执行流传到下一个 case。fall-through 应该加注释，让代码更清晰。
+
+```objc
+switch (condition) {
+  case 1:
+    // ** fall-through! **
+  case 2:
+    // code executed for values 1 and 2
+    break;
+  default:
+    // ...
+    break;
+}
+
+```
+
+当使用枚举类型进行 switch，不需要 `default`。
+
+```objc
+RWTLeftMenuTopItemType menuType = RWTLeftMenuTopItemMain;
+
+switch (menuType) {
+  case RWTLeftMenuTopItemMain:
+    // ...
+    break;
+  case RWTLeftMenuTopItemShows:
+    // ...
+    break;
+  case RWTLeftMenuTopItemSchedule:
+    // ...
+    break;
+}
+```
+
+## 类构造方法
+
+**MUST** 使用类构造方法总是返回 `instancetype` 类型而不是 `id`。这样保证编译器能正确推断结果类型。
+
+```objc
+@interface Airplane
++ (instancetype)airplaneWithType:(RWTAirplaneType)type;
+@end
+```
+
+关于 `instancetype` 可参考 [NSHipster.com](http://nshipster.com/instancetype/)。
+
+## Golden Path
+
+**SHOULD** 不要嵌套 `if` 语句。可以有多个 `return` 语句。即 Early Exit。
+
+**推荐：**
+
+```objc
+- (void)someMethod {
+    if (![someOther boolValue]) {
+        return;
+    }
+
+    //Do something important
+}
+```
+
+**反对：**
+
+```objc
+- (void)someMethod {
+    if ([someOther boolValue]) {
+        //Do something important
+    }
+}
+```
+
+## 换行
+
+**SHOULD** 很长的一行代码应该换到第二行，然后遵守本规范的间距部分（四个空格）。
+
+**推荐：**
+```objc
+self.productsRequest = [[SKProductsRequest alloc] 
+    initWithProductIdentifiers:productIdentifiers];
+```
+
+**反对：**
+```objc
+self.productsRequest = [[SKProductsRequest alloc] initWithProductIdentifiers:productIdentifiers];
+```
+
 # 其他 Objective-C 风格指南
 
+* [New York Times](https://github.com/NYTimes/objective-c-style-guide)
+* [raywenderlich](https://github.com/raywenderlich/objective-c-style-guide)
 * [Google](https://google.github.io/styleguide/objcguide.xml)
 * [GitHub](https://github.com/github/objective-c-conventions)
 * [Adium](https://trac.adium.im/wiki/CodingStyle)
@@ -583,3 +885,4 @@ if (isAwesome == YES) // Never do this.
 * [CocoaDevCentral](http://cocoadevcentral.com/articles/000082.php)
 * [Luke Redpath](http://lukeredpath.co.uk/blog/my-objective-c-style-guide.html)
 * [Marcus Zarra](http://www.cimgf.com/zds-code-style-guide/)
+* [Robots & Pencils](https://github.com/RobotsAndPencils/objective-c-style-guide)
